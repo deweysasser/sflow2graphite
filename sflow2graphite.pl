@@ -51,7 +51,22 @@ my %metricNames = (
  "nio_bytes_out"           => "net.bytes_out",
  "nio_pkts_out"            => "net.pkts_out",
  "nio_errs_out"            => "net.errs_out",
- "nio_drops_out"           => "net.drops_out"
+ "nio_drops_out"           => "net.drops_out",
+ "http_method_option_count"=> "http.method_option",
+ "http_method_get_count"   => "http.method_get",
+ "http_method_head_count"  => "http.method_head",
+ "http_method_post_count"  => "http.method_post",
+ "http_method_put_count"   => "http.method_put",
+ "http_method_delete_count"=> "http.method_delete",
+ "http_method_trace_count" => "http.method_trace",
+ "http_methd_connect_count"=> "http.method_connect",
+ "http_method_other_count" => "http.method_other",
+ "http_status_1XX_count"   => "http.status_1XX",
+ "http_status_2XX_count"   => "http.status_2XX",
+ "http_status_3XX_count"   => "http.status_3XX",
+ "http_status_4XX_count"   => "http.status_4XX",
+ "http_status_5XX_count"   => "http.status_5XX",
+ "http_status_other_count" => "http.status_other"
 );
 
 my $sock = IO::Socket::INET->new(
@@ -84,7 +99,7 @@ while( <PS> ) {
       $hostNames{$agentIP} = $hn;
     }
   } else {
-    my $metric = $metricNames {lc $attr};
+    my $metric = $metricNames {$attr};
     my $hostName = $hostNames{$agentIP};
     if($metric && $hostName) {
         $sock->send("$hostName.$metric $value $now\n");
