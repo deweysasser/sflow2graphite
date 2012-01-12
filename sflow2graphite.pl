@@ -66,7 +66,26 @@ my %metricNames = (
  "http_status_3XX_count"   => "http.status_3XX",
  "http_status_4XX_count"   => "http.status_4XX",
  "http_status_5XX_count"   => "http.status_5XX",
- "http_status_other_count" => "http.status_other"
+ "http_status_other_count" => "http.status_other",
+ "heap_mem_initial"        => "jvm.heap_initial",
+ "heap_mem_used"           => "jvm.heap_used",
+ "heap_mem_committed"      => "jvm.heap_committed",
+ "heap_mem_max"            => "jvm.heap_max",
+ "non_heap_mem_initial"    => "jvm.non_heap_initial",
+ "non_heap_mem_used"       => "jvm.non_heap_used",
+ "non_heap_mem_committed"  => "jvm.non_heap_committed",
+ "non_heap_mem_max"        => "jvm.non_heap_max",
+ "gc_count"                => "jvm.gc_count",
+ "gc_mS"                   => "jvm.gc_mS",
+ "classes_loaded"          => "jvm.classes_loaded",
+ "classes_total"           => "jvm.classes_total",
+ "classes_unloaded"        => "jvm.classes_unloaded",
+ "compilation_mS"          => "jvm.compilation_mS",
+ "threads_live"            => "jvm.threads_live",
+ "threads_daemon"          => "jvm.threads_daemon",
+ "threads_started"         => "jvm.threads_started",
+ "fds_open"                => "jvm.fds_open",
+ "fds_max"                 => "jvm.fds_max"
 );
 
 my $sock = IO::Socket::INET->new(
