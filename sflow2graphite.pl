@@ -2,9 +2,15 @@
 use strict;
 use POSIX;
 use IO::Socket::INET;
+use Getopt::Std;
 
-my $graphite_server = $ARGV[0] || '127.0.0.1';
-my $graphite_port   = $ARGV[1] || 2003;
+my %opt;
+getopts('hds:p:', \%opt);
+
+usage() if $opt{h};
+
+my $graphite_server = $opt{s} || '127.0.0.1';
+my $graphite_port   = $opt{p} || 2003;
 
 my %metricNames = (
  "cpu_load_one"            => "load.load_one",
@@ -88,6 +94,8 @@ my %metricNames = (
  "fds_max"                 => "jvm.fds_max"
 );
 
+&daemonize if $opt{d};
+
 my $sock = IO::Socket::INET->new(
        PeerAddr => $graphite_server,
        PeerPort => $graphite_port,
@@ -126,5 +134,41 @@ while( <PS> ) {
   }
 }
 
-close(PS);
 $sock->shutdown(2);
+
+sub signalHandler {
+  close(PS);
+}
+
+sub usage {
+  print <<EOF;
+  usage: $0 [-hd] [-s server] [-p port]
+    -h        : this (help) message
+    -d        : daemonize
+    -s server : graphite server (default 127.0.0.1)
+    -p port   : graphite port   (default 2003)
+  example: $0 -d -s 10.0.0.151 -p 2004
+EOF
+  exit;
+}
+
+sub daemonize {
+   POSIX::setsid or die "setsid: $!";
+   my $pid = fork();
+   if($pid < 0) {
+      die "fork: $!";
+   } elsif ($pid) {
+      exit 0;
+   }
+   chdir "/";
+   umask 0;
+   foreach (0 .. (POSIX::sysconf (&POSIX::_SC_OPEN_MAX) || 1024))
+      { POSIX::close $_ }
+   open(STDIN, "</dev/null");
+   open(STDOUT, ">/dev/null");
+   open(STDERR, ">&STDOUT");
+
+   $SIG{INT} = $SIG{TERM} = $SIG{HUP} = \&signalHandler;
+   $SIG{PIPE} = 'ignore';
+}
+
