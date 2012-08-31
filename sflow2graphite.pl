@@ -91,7 +91,17 @@ my %metricNames = (
  "threads_daemon"          => "jvm.threads_daemon",
  "threads_started"         => "jvm.threads_started",
  "fds_open"                => "jvm.fds_open",
- "fds_max"                 => "jvm.fds_max"
+ "fds_max"                 => "jvm.fds_max",
+ "nvml_device_count"       => "nvml.device_count",
+ "nvml_processes"          => "nvml.processes",
+ "nvml_gpu_mS"             => "nvml.gpu_mS",
+ "nvml_mem_mS"             => "nvml.mem_mS",
+ "nvml_mem_bytes_total"    => "nvml.mem_bytes_total",
+ "nvml_mem_bytes_free"     => "nvml.mem_bytes_free",
+ "nvml_ecc_errors"         => "nvml.ecc_errors",
+ "nvml_energy_mJ"          => "nvml.energy_mJ",
+ "nvml_temperature_C"      => "nvml.temperature_C",
+ "nvml_fan_speed_pc"       => "nvml.fan_speed_pc"
 );
 
 &daemonize if $opt{d};
