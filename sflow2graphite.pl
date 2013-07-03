@@ -5,10 +5,11 @@ use IO::Socket::INET;
 use Getopt::Std;
 
 my %opt;
-getopts('hds:p:', \%opt);
+getopts('hds:p:n:', \%opt);
 
 usage() if $opt{h};
 
+my $prefix = $opt{n} || "sflow";
 my $graphite_server = $opt{s} || '127.0.0.1';
 my $graphite_port   = $opt{p} || 2003;
 
@@ -139,7 +140,7 @@ while( <PS> ) {
     my $metric = $metricNames {$attr};
     my $hostName = $hostNames{$agentIP};
     if($metric && $hostName) {
-        $sock->send("$hostName.$metric $value $now\n");
+        $sock->send("$prefix.$hostName.$metric $value $now\n");
     }
   }
 }
@@ -157,6 +158,7 @@ sub usage {
     -d        : daemonize
     -s server : graphite server (default 127.0.0.1)
     -p port   : graphite port   (default 2003)
+    -n name   : name with which to prefix all metrics (default 'sflow')
   example: $0 -d -s 10.0.0.151 -p 2004
 EOF
   exit;
