@@ -14,6 +14,18 @@ my $prefix = $opt{n} || "sflow";
 my $graphite_server = $opt{s} || '127.0.0.1';
 my $graphite_port   = $opt{p} || 2003;
 
+my $Debug = 0;
+
+my %LastValues;
+my %ThisValues;
+
+# Should really be able to indicate here that this is a *delta*.
+my %SyntheticMetrics = ( 
+    "disk.read_latency" => ["disk_read_time", "disk_reads"] ,
+    "disk.write_latency" => ["disk_write_time", "disk_writes"] ,
+    );
+
+
 my %metricNames = (
  "cpu_load_one"            => "load.load_one",
  "cpu_load_five"           => "load.load_five",
@@ -132,6 +144,7 @@ while( <PS> ) {
     $now = time;
   } elsif ('agent' eq $attr) {
     $agentIP = $value;
+    saveValue($agentIP, "__now", $now);
   } elsif ('sourceId' eq $attr) {
     $sourceId = $value;
   } elsif ('hostname' eq $attr) {
@@ -139,18 +152,110 @@ while( <PS> ) {
       my ($hn) = split /[.]/, $value;
       $hostNames{$agentIP} = $hn;
     }
+  } elsif ('endSample' eq $attr) {
+      # Calculate any synthetic metrics
+      # I'm just hard-coding a few for now
+
+      my $then = &getLastValue($agentIP,"__now");
+      next unless $then;
+
+      my $deltaT = $now - $then;
+
+      &createSyntheticMetrics($agentIP, $now);
+
+
+      
   } else {
+      &saveValue($agentIP, $attr, $value);
     my $metric = $metricNames {$attr};
     my $hostName = $hostNames{$agentIP};
     if($metric && $hostName) {
 	my $name = "$prefix.$hostName.$metric";
         $sock->send("$name $value $now\n");
-	&verbose("Sending $name");
+	&verbose("Sending $name = $value ($now)");
     }
   }
 }
 
 $sock->shutdown(2);
+
+sub createSyntheticMetrics {
+    my $agentIP = shift;
+    my $now = shift;
+    my $hostName = $hostNames{$agentIP};
+
+    foreach my $name (keys %SyntheticMetrics) {
+	&debug("Processing synthetic $name");
+	my $metric = $name;
+	my @components = @{$SyntheticMetrics{$name}};
+
+
+	my $numerator = &getValueChange($agentIP, $components[0]);
+	my $denominator = &getValueChange($agentIP, $components[1]);
+
+	&verbose("num = $numerator, den = $denominator");
+	if(defined($numerator)) {
+	    my $value = 0;
+	    if ($denominator) {
+		$value = $numerator/$denominator;
+
+	    }
+	    my $name = "$prefix.$hostName.$metric";
+	    $sock->send("$name $value $now\n");
+	    &verbose("Sending synthetic $name = $value ($now)");
+	}
+
+    }
+
+}
+
+sub saveValue {
+    my $agentIP = shift;
+    my $metric = shift;
+    my $value = shift;
+
+#    &debug("Saving $agentIP/$metric = $value");
+
+    $LastValues{$agentIP}{$metric} = $ThisValues{$agentIP}{$metric};
+
+    $ThisValues{$agentIP}{$metric} = $value;
+}
+
+sub getThisValue {
+    my $agentIP = shift;
+    my $metric = shift;
+
+    my $value = $ThisValues{$agentIP}{$metric};
+
+#    &debug("getting this $agentIP/$metric = $value");
+
+    return $value;
+}
+
+sub getLastValue {
+    my $agentIP = shift;
+    my $metric = shift;
+
+    my $value = $LastValues{$agentIP}{$metric};
+
+#    &debug("getting last $agentIP/$metric = $value");
+
+    return $value;
+}
+
+sub getValueChange {
+    my $agentIP = shift;
+    my $metric = shift;
+
+    my $t = &getThisValue($agentIP, $metric);
+    my $l = &getLastValue($agentIP, $metric);
+
+    if(defined($t) && defined($l)) {
+	return $t - $l;
+    }
+
+    return ;
+}
 
 sub signalHandler {
   close(PS);
@@ -158,6 +263,11 @@ sub signalHandler {
 
 sub verbose {
     return unless $Verbose;
+    print "@_\n";
+}
+
+sub debug {
+    return unless $Debug;
     print "@_\n";
 }
 
