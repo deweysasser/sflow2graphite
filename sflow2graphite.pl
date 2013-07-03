@@ -10,9 +10,14 @@ getopts('hdvs:p:n:', \%opt);
 usage() if $opt{h};
 
 my $Verbose = $opt{v};
-my $prefix = $opt{n} || "sflow";
+my $prefix = $opt{n} || "";
 my $graphite_server = $opt{s} || '127.0.0.1';
 my $graphite_port   = $opt{p} || 2003;
+
+# Make sure prefix ends in '.' if there is a prefix
+if($prefix) {
+    $prefix .= "." unless $prefix =~ /\.$/;
+}
 
 my $Debug = 0;
 
@@ -170,7 +175,7 @@ while( <PS> ) {
     my $metric = $metricNames {$attr};
     my $hostName = $hostNames{$agentIP};
     if($metric && $hostName) {
-	my $name = "$prefix.$hostName.$metric";
+	my $name = "${prefix}$hostName.$metric";
         $sock->send("$name $value $now\n");
 	&verbose("Sending $name = $value ($now)");
     }
@@ -200,7 +205,7 @@ sub createSyntheticMetrics {
 		$value = $numerator/$denominator;
 
 	    }
-	    my $name = "$prefix.$hostName.$metric";
+	    my $name = "${prefix}$hostName.$metric";
 	    $sock->send("$name $value $now\n");
 	    &verbose("Sending synthetic $name = $value ($now)");
 	}
@@ -279,7 +284,7 @@ sub usage {
     -v        : verbose
     -s server : graphite server (default 127.0.0.1)
     -p port   : graphite port   (default 2003)
-    -n name   : name with which to prefix all metrics (default 'sflow')
+    -n name   : name with which to prefix all metrics (default to empty)
   example: $0 -d -s 10.0.0.151 -p 2004
 EOF
   exit;

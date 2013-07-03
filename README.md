@@ -5,7 +5,7 @@ My branch of https://code.google.com/p/sflow2graphite/ for bug fixes and enhance
 
 Changes from the original:
 
-* a prefix for all metrics ('sflow.')
+* supports and optional prefix for all metrics ('sflow.')
 * a generic mechanism for handling calculated metrics
 * calculated disk read and write latencies
 
