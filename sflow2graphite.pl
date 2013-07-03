@@ -5,10 +5,11 @@ use IO::Socket::INET;
 use Getopt::Std;
 
 my %opt;
-getopts('hds:p:n:', \%opt);
+getopts('hdvs:p:n:', \%opt);
 
 usage() if $opt{h};
 
+my $Verbose = $opt{v};
 my $prefix = $opt{n} || "sflow";
 my $graphite_server = $opt{s} || '127.0.0.1';
 my $graphite_port   = $opt{p} || 2003;
@@ -117,6 +118,8 @@ die "Unable to connect: $!\n" unless ($sock->connected);
 
 open(PS, "/usr/local/bin/sflowtool |") || die "Failed: $!\n";
 
+&verbose("Listing to sflowtool");
+
 my $agentIP = "";
 my $sourceId = "";
 my $now = "";
@@ -140,7 +143,9 @@ while( <PS> ) {
     my $metric = $metricNames {$attr};
     my $hostName = $hostNames{$agentIP};
     if($metric && $hostName) {
-        $sock->send("$prefix.$hostName.$metric $value $now\n");
+	my $name = "$prefix.$hostName.$metric";
+        $sock->send("$name $value $now\n");
+	&verbose("Sending $name");
     }
   }
 }
@@ -151,11 +156,17 @@ sub signalHandler {
   close(PS);
 }
 
+sub verbose {
+    return unless $Verbose;
+    print "@_\n";
+}
+
 sub usage {
   print <<EOF;
   usage: $0 [-hd] [-s server] [-p port]
     -h        : this (help) message
     -d        : daemonize
+    -v        : verbose
     -s server : graphite server (default 127.0.0.1)
     -p port   : graphite port   (default 2003)
     -n name   : name with which to prefix all metrics (default 'sflow')
