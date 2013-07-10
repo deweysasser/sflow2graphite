@@ -5,12 +5,31 @@ use IO::Socket::INET;
 use Getopt::Std;
 
 my %opt;
-getopts('hds:p:', \%opt);
+getopts('hdvs:p:n:', \%opt);
 
 usage() if $opt{h};
 
+my $Verbose = $opt{v};
+my $prefix = $opt{n} || "";
 my $graphite_server = $opt{s} || '127.0.0.1';
 my $graphite_port   = $opt{p} || 2003;
+
+# Make sure prefix ends in '.' if there is a prefix
+if($prefix) {
+    $prefix .= "." unless $prefix =~ /\.$/;
+}
+
+my $Debug = 0;
+
+my %LastValues;
+my %ThisValues;
+
+# Should really be able to indicate here that this is a *delta*.
+my %SyntheticMetrics = ( 
+    "disk.read_latency" => ["disk_read_time", "disk_reads"] ,
+    "disk.write_latency" => ["disk_write_time", "disk_writes"] ,
+    );
+
 
 my %metricNames = (
  "cpu_load_one"            => "load.load_one",
@@ -116,6 +135,8 @@ die "Unable to connect: $!\n" unless ($sock->connected);
 
 open(PS, "/usr/local/bin/sflowtool |") || die "Failed: $!\n";
 
+&verbose("Listing to sflowtool");
+
 my $agentIP = "";
 my $sourceId = "";
 my $now = "";
@@ -128,6 +149,7 @@ while( <PS> ) {
     $now = time;
   } elsif ('agent' eq $attr) {
     $agentIP = $value;
+    saveValue($agentIP, "__now", $now);
   } elsif ('sourceId' eq $attr) {
     $sourceId = $value;
   } elsif ('hostname' eq $attr) {
@@ -135,19 +157,123 @@ while( <PS> ) {
       my ($hn) = split /[.]/, $value;
       $hostNames{$agentIP} = $hn;
     }
+  } elsif ('endSample' eq $attr) {
+      # Calculate any synthetic metrics
+      # I'm just hard-coding a few for now
+
+      my $then = &getLastValue($agentIP,"__now");
+      next unless $then;
+
+      my $deltaT = $now - $then;
+
+      &createSyntheticMetrics($agentIP, $now);
+
+
+      
   } else {
+      &saveValue($agentIP, $attr, $value);
     my $metric = $metricNames {$attr};
     my $hostName = $hostNames{$agentIP};
     if($metric && $hostName) {
-        $sock->send("$hostName.$metric $value $now\n");
+	my $name = "${prefix}$hostName.$metric";
+        $sock->send("$name $value $now\n");
+	&verbose("Sending $name = $value ($now)");
     }
   }
 }
 
 $sock->shutdown(2);
 
+sub createSyntheticMetrics {
+    my $agentIP = shift;
+    my $now = shift;
+    my $hostName = $hostNames{$agentIP};
+
+    foreach my $name (keys %SyntheticMetrics) {
+	&debug("Processing synthetic $name");
+	my $metric = $name;
+	my @components = @{$SyntheticMetrics{$name}};
+
+
+	my $numerator = &getValueChange($agentIP, $components[0]);
+	my $denominator = &getValueChange($agentIP, $components[1]);
+
+	&verbose("num = $numerator, den = $denominator");
+	if(defined($numerator)) {
+	    my $value = 0;
+	    if ($denominator) {
+		$value = $numerator/$denominator;
+
+	    }
+	    my $name = "${prefix}$hostName.$metric";
+	    $sock->send("$name $value $now\n");
+	    &verbose("Sending synthetic $name = $value ($now)");
+	}
+
+    }
+
+}
+
+sub saveValue {
+    my $agentIP = shift;
+    my $metric = shift;
+    my $value = shift;
+
+#    &debug("Saving $agentIP/$metric = $value");
+
+    $LastValues{$agentIP}{$metric} = $ThisValues{$agentIP}{$metric};
+
+    $ThisValues{$agentIP}{$metric} = $value;
+}
+
+sub getThisValue {
+    my $agentIP = shift;
+    my $metric = shift;
+
+    my $value = $ThisValues{$agentIP}{$metric};
+
+#    &debug("getting this $agentIP/$metric = $value");
+
+    return $value;
+}
+
+sub getLastValue {
+    my $agentIP = shift;
+    my $metric = shift;
+
+    my $value = $LastValues{$agentIP}{$metric};
+
+#    &debug("getting last $agentIP/$metric = $value");
+
+    return $value;
+}
+
+sub getValueChange {
+    my $agentIP = shift;
+    my $metric = shift;
+
+    my $t = &getThisValue($agentIP, $metric);
+    my $l = &getLastValue($agentIP, $metric);
+
+    if(defined($t) && defined($l)) {
+	return $t - $l;
+    }
+
+    return ;
+}
+
 sub signalHandler {
   close(PS);
+}
+
+sub verbose {
+    return unless $Verbose;
+    print "@_\n";
+}
+
+sub debug {
+    return unless $Debug;
+    print "@_\n";
 }
 
 sub usage {
@@ -155,8 +281,10 @@ sub usage {
   usage: $0 [-hd] [-s server] [-p port]
     -h        : this (help) message
     -d        : daemonize
+    -v        : verbose
     -s server : graphite server (default 127.0.0.1)
     -p port   : graphite port   (default 2003)
+    -n name   : name with which to prefix all metrics (default to empty)
   example: $0 -d -s 10.0.0.151 -p 2004
 EOF
   exit;
