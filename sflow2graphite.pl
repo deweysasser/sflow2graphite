@@ -1,4 +1,7 @@
 #!/usr/bin/perl -w
+
+# TODO:  We're not sending through metrics on the first data point because we can't calculate the synthetics.  Fix this so we always send through non-synthetics.
+
 use strict;
 use POSIX;
 use IO::Socket::INET;
