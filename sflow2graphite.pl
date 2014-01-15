@@ -31,6 +31,7 @@ my %ThisValues;
 my %SyntheticMetrics = ( 
     "disk.read_latency" => ["deltaratio", "disk_read_time", "disk_reads"] ,
     "disk.write_latency" => ["deltaratio", "disk_write_time", "disk_writes"] ,
+    "cpu.total" => ["sum", "cpu_user", "cpu_system", "cpu_wio"],
     );
 
 
@@ -206,13 +207,23 @@ sub createSyntheticMetrics {
 	    my $numerator = &getValueChange($agentIP, $components[0]);
 	    my $denominator = &getValueChange($agentIP, $components[1]);
 
-	    &verbose("num = $numerator, den = $denominator");
+	    &verbose("for $name:  num = $numerator, den = $denominator");
 	    if(defined($numerator)) {
 		if ($denominator) {
 		    $value = $numerator/$denominator;
 
 		}
 	    }
+	}
+	elsif ($op eq "sum") {
+	    my $sum = 0;
+	    &verbose("Adding components @components to make $name");
+	    foreach my $component (@components) {
+		my $val = getThisValue($agentIP, $component);
+#		&verbose("$name component $component is $val, sum now $sum");
+		$sum += $val;
+	    }
+	    $value = $sum;
 	}
 
 	$sock->send("$name $value $now\n");
