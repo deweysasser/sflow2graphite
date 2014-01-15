@@ -134,7 +134,7 @@ my $sock = IO::Socket::INET->new(
        Proto    => 'tcp'
     );
 
-die "Unable to connect: $!\n" unless ($sock->connected);
+die "Unable to connect: $!\n" unless ($sock && $sock->connected);
 
 open(PS, "/usr/local/bin/sflowtool |") || die "Failed: $!\n";
 
