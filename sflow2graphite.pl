@@ -29,8 +29,9 @@ my %ThisValues;
 
 # Should really be able to indicate here that this is a *delta*.
 my %SyntheticMetrics = ( 
-    "disk.read_latency" => ["disk_read_time", "disk_reads"] ,
-    "disk.write_latency" => ["disk_write_time", "disk_writes"] ,
+    "disk.read_latency" => ["deltaratio", "disk_read_time", "disk_reads"] ,
+    "disk.write_latency" => ["deltaratio", "disk_write_time", "disk_writes"] ,
+    "cpu.total" => ["sum", "cpu_user", "cpu_system", "cpu_wio"],
     );
 
 
@@ -134,7 +135,7 @@ my $sock = IO::Socket::INET->new(
        Proto    => 'tcp'
     );
 
-die "Unable to connect: $!\n" unless ($sock->connected);
+die "Unable to connect: $!\n" unless ($sock && $sock->connected);
 
 open(PS, "/usr/local/bin/sflowtool |") || die "Failed: $!\n";
 
@@ -197,21 +198,36 @@ sub createSyntheticMetrics {
 	my $metric = $name;
 	my @components = @{$SyntheticMetrics{$name}};
 
+	my $op = shift @components;
 
-	my $numerator = &getValueChange($agentIP, $components[0]);
-	my $denominator = &getValueChange($agentIP, $components[1]);
+	my $name = "${prefix}$hostName.$metric";
+	my $value = 0;
 
-	&verbose("num = $numerator, den = $denominator");
-	if(defined($numerator)) {
-	    my $value = 0;
-	    if ($denominator) {
-		$value = $numerator/$denominator;
+	if($op eq "deltaratio") {
+	    my $numerator = &getValueChange($agentIP, $components[0]);
+	    my $denominator = &getValueChange($agentIP, $components[1]);
 
+	    &verbose("for $name:  num = $numerator, den = $denominator");
+	    if(defined($numerator)) {
+		if ($denominator) {
+		    $value = $numerator/$denominator;
+
+		}
 	    }
-	    my $name = "${prefix}$hostName.$metric";
-	    $sock->send("$name $value $now\n");
-	    &verbose("Sending synthetic $name = $value ($now)");
 	}
+	elsif ($op eq "sum") {
+	    my $sum = 0;
+	    &verbose("Adding components @components to make $name");
+	    foreach my $component (@components) {
+		my $val = getThisValue($agentIP, $component);
+#		&verbose("$name component $component is $val, sum now $sum");
+		$sum += $val;
+	    }
+	    $value = $sum;
+	}
+
+	$sock->send("$name $value $now\n");
+	&verbose("Sending synthetic $name = $value ($now)");
 
     }
 
