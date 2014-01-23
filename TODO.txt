@@ -1,0 +1,9 @@
+TODO:  
+ * Create a method to normalize total CPU by # of CPUs -- this
+   requires 2 levels of calualtion and thus implies either general
+   expression evaluation or dependency ordering of synthetic
+   calculations.
+ * We're not sending through metrics on the first data point because
+   we can't calculate the synthetics.  Fix this so we always send
+   through non-synthetics.
+

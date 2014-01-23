@@ -1,6 +1,10 @@
 #!/usr/bin/perl -w
 
+<<<<<<< HEAD
+# See TODO.txt for tasks/roadmap
+=======
 # TODO:  We're not sending through metrics on the first data point because we can't calculate the synthetics.  Fix this so we always send through non-synthetics.
+>>>>>>> origin/development
 
 use strict;
 use POSIX;
